@@ -1,8 +1,11 @@
 const { createServer } = require("http");
 const { resolve, sep } = require("path");
 const { createReadStream, createWriteStream } = require("fs");
-const { stat, readdir } = require("fs").promises
-const commandLineArgs = require("command-line-args")
+const { stat, readdir } = require("fs").promises;
+const {parse} = require("url");
+const commandLineArgs = require("command-line-args");
+const mime = require("mime");
+
 
 const optionDefinitions = [
   { name: "port", alias: "p", type: String, defaultValue: "8000" },
@@ -11,9 +14,9 @@ const optionDefinitions = [
 ]
 const args = commandLineArgs(optionDefinitions);
 
-const path = resolve(args.directory);
-// check if path exists and is a directory
-stat(path)
+const baseDirectory = resolve(args.directory);
+// check if baseDirectory exists and is a directory
+stat(baseDirectory)
   .then(stats => {
     if (!stats.isDirectory()) throw new Error;
   })
@@ -53,3 +56,30 @@ async function notAllowed(request) {
   };
 }
 
+function urlPath(url) {
+  let {pathname} = parse(url);
+  let path = resolve(decodeURIComponent(pathname).slice(1));
+  if (path != baseDirectory && !path.startsWith(baseDirectory + sep)) {
+    throw {status: 403, body: "Forbidden"};
+  }
+  return path;
+}
+
+methods.GET = async function(request) {
+  let path = urlPath(request.url);
+  let stats;
+  try {
+    stats = await stat(path);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    else return {status: 404, body: "File not found"};
+  }
+  if (stats.isDirectory()) {
+    return {body: (await readdir(path)).join("\n")};
+  } else {
+    return {
+      body: createReadStream(path),
+      type: mime.getType(path)
+    }
+  }
+};
