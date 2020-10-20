@@ -27,9 +27,16 @@ createServer((request, response) => {
       else return {status: 500, body: String(error)};
     })
     .then(({body, status = 200, type = "text/plain"}) => {
-      response.writeHead(200, {"Content-Type": type});
+      response.writeHead(status, {"Content-Type": type});
       // if body is a readStream, pipe it to response
       if (body && body.pipe) body.pipe(response); 
       else response.end(body);
     })
 }).listen(args.port);
+
+async function notAllowed(request) {
+  return {
+    status: 405,
+    body: `Method ${request.method} not allowed.`
+  };
+}
