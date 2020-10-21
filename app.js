@@ -5,11 +5,11 @@ const { stat, readdir, rmdir, unlink, mkdir } = require("fs").promises;
 const commandLineArgs = require("command-line-args");
 const mime = require("mime");
 
-
 const optionDefinitions = [
   { name: "port", alias: "p", type: String, defaultValue: "8000" },
   { name: "directory", alias: "d", type: String, defaultOption: true, defaultValue: "." },
-  { name: "host", alias: "h", type: String, defaultValue: "0.0.0.0"}
+  { name: "host", alias: "h", type: String, defaultValue: "0.0.0.0"},
+  { name: "methods", alias: "m", type: String, multiple:true, defaultValue: "all"}
 ]
 const args = commandLineArgs(optionDefinitions);
 
@@ -23,7 +23,11 @@ stat(baseDirectory)
 
 const methods = Object.create(null);
 const server = createServer((request, response) => {
-  let handler = methods[request.method] || notAllowed;
+  let handler;
+  if (args.methods.includes(request.method) || args.methods.includes("all")) {
+    handler = methods[request.method] || notAllowed;
+  } else handler = notAllowed;
+
   handler(request)
     .catch(error => {
       if (error.status !== null) return error;
