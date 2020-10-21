@@ -2,7 +2,6 @@ const { createServer } = require("http");
 const { resolve, sep } = require("path");
 const { createReadStream, createWriteStream } = require("fs");
 const { stat, readdir, rmdir, unlink, mkdir } = require("fs").promises;
-const {parse} = require("url");
 const commandLineArgs = require("command-line-args");
 const mime = require("mime");
 
@@ -57,12 +56,8 @@ async function notAllowed(request) {
 }
 
 function urlPath(url) {
-  let {pathname} = parse(url);
-  let path = resolve(decodeURIComponent(pathname).slice(1));
-  if (path != baseDirectory && !path.startsWith(baseDirectory + sep)) {
-    throw {status: 403, body: "Forbidden"};
-  }
-  return path;
+  let pathname = decodeURIComponent(url);
+  return resolve(baseDirectory, pathname.slice(1));
 }
 
 methods.GET = async function(request) {
@@ -111,4 +106,14 @@ methods.PUT = async function(request) {
   let path = urlPath(request.url);
   await pipeStream(request, createWriteStream(path));
   return {status: 204};
+}
+
+methods.MKCOL = async function(request) {
+  let path = urlPath(request.url);
+  try {
+    await mkdir(path);
+    return {status: 204}
+  } catch(e) {
+    return {status: 409}
+  }
 }
