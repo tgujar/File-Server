@@ -1,7 +1,7 @@
 const { createServer } = require("http");
 const { resolve, sep } = require("path");
 const { createReadStream, createWriteStream } = require("fs");
-const { stat, readdir } = require("fs").promises;
+const { stat, readdir, rmdir, unlink, mkdir } = require("fs").promises;
 const {parse} = require("url");
 const commandLineArgs = require("command-line-args");
 const mime = require("mime");
@@ -83,3 +83,32 @@ methods.GET = async function(request) {
     }
   }
 };
+
+methods.DELETE = async function(request) {
+  let path = urlPath(request.url);
+  let stats;
+  try {
+    stats = await stat(path);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+    else return {status: 204};
+  }
+  if (stats.isDirectory()) await rmdir(path);
+  else await unlink(path);
+  return {status: 204};
+}
+
+function pipeStream(from, to) {
+  return new Promise((resolve, reject) => {
+    from.on("error", reject);
+    to.on("error", reject);
+    to.on("finish", resolve);
+    from.pipe(to);
+  })
+}
+
+methods.PUT = async function(request) {
+  let path = urlPath(request.url);
+  await pipeStream(request, createWriteStream(path));
+  return {status: 204};
+}
